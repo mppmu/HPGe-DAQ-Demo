@@ -1,0 +1,14 @@
+.DS_Store
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+.ipynb_checkpoints
+.vscode
+
+*.h5
+*.lh5
+*.pdf
+*.png
+*.jpg
+
+daq-config.toml
