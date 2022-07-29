@@ -22,6 +22,73 @@ deconv_wf = filt(deconv_filter, wf_blcorr)
 plot(wf_blcorr)
 plot!(deconv_wf)
 
+
+function apply_inv_cr_flt_parallel!(A::AbstractMatrix{<:Real}, tau::Real, acc::AbstractVector{<:Real})
+    T = eltype(A)
+    alpha = 1 / (1 + T(tau))
+
+    @assert axes(A,2) == axes(acc,1)
+
+    acc .= 0
+
+    @inbounds for i in axes(A,1) # loop over samples
+        @simd for j in axes(A,2) # loop over waveforms
+            x = A[i,j]
+            y = x + acc[j]
+            acc[j] = muladd(x, alpha, acc[j])
+            A[i,j] = y
+        end
+    end
+    return A
+end
+
+
+function apply_inv_cr_flt_parallel_tp!(A_tp::AbstractMatrix{<:Real}, tau::Real, acc::AbstractVector{<:Real})
+    T = eltype(A_tp)
+    alpha = 1 / (1 + T(tau))
+
+    @assert axes(A_tp,1) == axes(acc,1)
+
+    acc .= 0
+
+    Base.Threads.@threads for j in axes(A_tp,2) # loop over samples
+        @inbounds @simd for i in axes(A_tp,1) # loop over waveforms
+            x = A_tp[i,j]
+            y = x + acc[i]
+            acc[i] = muladd(x, alpha, acc[i])
+            A_tp[i,j] = y
+        end
+    end
+    return A_tp
+end
+
+
+#=
+acc = similar(flatview(wfs), length(wfs))
+@time apply_inv_cr_flt_parallel_tp!(A_tp, 14000, acc);
+=#
+
+
+function apply_inv_cr_flt!(wf::AbstractVector{<:Real}, tau::Real)
+    T = eltype(wf)
+    alpha = 1 / (1 + T(tau))
+    acc::T = 0
+
+    for i in eachindex(wf)
+        x = wf[i]
+        y = x + acc
+        acc = muladd(x, alpha, acc)
+        wf[i] = y
+    end
+
+    return wf
+end
+
+deconv_wf = apply_inv_cr_flt!(copy(wf_blcorr), 14000)
+plot(wf_blcorr)
+plot!(deconv_wf)
+
+
 eflt_wf = charge_trapflt!(copy(deconv_wf), 1000, 500)
 
 plot(eflt_wf)
