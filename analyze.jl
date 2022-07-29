@@ -180,9 +180,28 @@ identified = Dict(
     "Pb-214-1" => 351.93,
     "Pb-214-2" => 242.00,
     "Pb-214-3" => 295.22,
-    
 )
 
 
 plot(h_cal, lt = :stepbins, yscale = :log10, size=(1200,800))
 vline!(collect(values(identified)))
+
+
+using Distributions, ValueShapes, BAT, MeasureBase, DensityInterface
+
+expected(xs, v) = product_distribution(Poisson.(v.a .* pdf.(Ref(Normal(v.mu, v.sigma)), xs) .+ v.offs))
+
+prior = NamedTupleDist(
+    mu = Normal(1450, 20),
+    sigma = Uniform(1, 10),
+    a = Uniform(0, 5000),
+    offs = Uniform(0, 1000)
+)
+
+
+
+likelihood = Likelihood(Base.Fix1(expected, xs), h.weights)
+
+posterior = PosteriorMeasure(likelihood, prior)
+
+r = bat_sample(posterior)
